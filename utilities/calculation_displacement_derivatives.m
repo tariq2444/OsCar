@@ -59,12 +59,12 @@ for i_freq = 1:length(freq_range_verification)
 
 end
 
-% Fig 4. of "Li, Ren, Xu, 2016"
+% Fig 4. of "Li, Ren, Xu, 2016" (#664)
 figure 
 plot(freq_range_verification, dh_dt_square_verification, 'r', 'LineWidth', 2)
 hold on 
 plot(freq_range_verification, dh_dx_square_verification, '--b', 'LineWidth', 2)
-ylabel("$f$ [Hz]",'Interpreter','latex')
+xlabel("$f$ [Hz]",'Interpreter','latex')
 legend('(dh/dt)^2', '(dh/dx)^2')
 grid on
 % TODO: why this does not generate exactly the same result of the paper?
@@ -101,7 +101,8 @@ for i_ampl = 1:length(amplitude_range_verification)
 
 end
 
-% Fig 3. of "Li, Ren, Xu, 2016"
+% Fig 3. of "Li, Ren, Xu, 2016" (#664) and Fig. 3 of "McMasters et al."
+% (#664) (the latter uses different values)
 figure 
 plot(rad2deg(amplitude_range_verification), dh_dt_square_verification, 'r', 'LineWidth', 2)
 hold on 
