@@ -14,7 +14,7 @@ close all
 clc
 
 %% 1) Parameters 
-interval_number = 10; % this parameters defines the interval over 
+interval_number = 10; % caveat: modified in section 3.
 Dt = 0.001; % time step for the numerical integration
 
 A = pi*(0.12/2)^2; % [m]
@@ -32,7 +32,7 @@ u = 0.184; % [m/s] surge speed
 %% 2) Verification plots, reproducing figures from "Li, Ren, Xu, 2016"
 
 % 2.1) Frequency range plot
-freq_range_verification = linspace(0.000001, 2.0, interval_number); % [Hz]
+freq_range_verification = linspace(0.001, 2.0, interval_number); % [Hz]
 theta_0_verification = deg2rad(30); % [rad]
 
 dh_dt_square_verification = zeros(interval_number, 1);
@@ -51,15 +51,12 @@ for i_freq = 1:length(freq_range_verification)
 
 
     % spatial derivative
-    dh_dx_square_temp = trapz(time_vect,(tan(theta_0_verification*sin(2*pi*f_verification*time_vect))).^2)
-    % 1/T
-    % 1/T * dh_dx_square_temp
-    % disp(" ")
+    dh_dx_square_temp = trapz(time_vect,(tan(theta_0_verification*sin(2*pi*f_verification*time_vect))).^2);
     dh_dx_square_verification(i_freq, 1) = 1/T * dh_dx_square_temp;
 
 end
 
-% Fig 4. of "Li, Ren, Xu, 2016" (#664)
+% Fig 4. of "Li, Ren, Xu, 2016" (#666)
 figure 
 plot(freq_range_verification, dh_dt_square_verification, 'r', 'LineWidth', 2)
 hold on 
@@ -67,12 +64,13 @@ plot(freq_range_verification, dh_dx_square_verification, '--b', 'LineWidth', 2)
 xlabel("$f$ [Hz]",'Interpreter','latex')
 legend('(dh/dt)^2', '(dh/dx)^2')
 grid on
-% TODO: why this does not generate exactly the same result of the paper?
+% This does not generate exactly the same result of the paper. The spatial
+% derivative, should not depend on frequency when it is averaged over the
+% full period.
 
-% this commented function is useful for debugging
+% This commented function is useful for debugging
 % figure 
 % plot(trapz(time_vect,(tan(theta_0_verification*sin(2*pi*f_verification*time_vect))).^2))
-
 
 
 % 2.2) Amplitude range plot
@@ -101,7 +99,7 @@ for i_ampl = 1:length(amplitude_range_verification)
 
 end
 
-% Fig 3. of "Li, Ren, Xu, 2016" (#664) and Fig. 3 of "McMasters et al."
+% Fig 3. of "Li, Ren, Xu, 2016" (#666) and Fig. 3 of "McMasters et al. (#664)"
 % (#664) (the latter uses different values)
 figure 
 plot(rad2deg(amplitude_range_verification), dh_dt_square_verification, 'r', 'LineWidth', 2)
@@ -114,6 +112,7 @@ grid on
 
 
 %% 3) Plot thrust
+interval_number = 100; % reduced from the original value to easecomputational burden 
 amplitude_range_verification = linspace(deg2rad(-35), deg2rad(35), interval_number); % [rad]
 freq_range_verification = linspace(0.000001, 3.0, interval_number); % [Hz]
 
@@ -145,7 +144,9 @@ end
 
 % Thrust -- CAVEAT: this requires "u"! Make sure to select appropriate
 % values
-T_fin = rho * A / 2 * (dh_dt_square_torque - u^2 .* dh_dx_square_torque);
+T_fin = rho * A / 2 * (dh_dt_square_torque - u^git sta2 .* dh_dx_square_torque);
+
+T_fin_simplified = rho * A / 2 * (dh_dt_square_torque - u^2 .* dh_dx_square_torque);  % TODO: update
 
 
 figure 
@@ -190,3 +191,6 @@ dh_dx_square_desired = 1/T * dh_dx_square_temp;
 
 disp("Desired force = ")
 T_fin_desired = rho * A / 2 * (dh_dt_square_desired - u^2 * dh_dx_square_desired)
+
+
+
