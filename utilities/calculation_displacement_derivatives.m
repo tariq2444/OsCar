@@ -5,7 +5,7 @@
 % Developed for "Developing a bio-inspired underwater robot with a morphing 
 % caudal fin for the surveillance of coral reefs", 2025
 %
-% authors: Davide Grande, ...
+% authors: Davide Grande
 % date: 04/06/2025
 %
 
@@ -62,11 +62,11 @@ plot(freq_range_verification, dh_dt_square_verification, 'r', 'LineWidth', 2)
 hold on 
 plot(freq_range_verification, dh_dx_square_verification, '--b', 'LineWidth', 2)
 xlabel("$f$ [Hz]",'Interpreter','latex')
-legend('(dh/dt)^2', '(dh/dx)^2')
+legend('$(\partial h/\partial t)^2$', '$(\partial h/\partial x)^2$','Interpreter','latex')
 grid on
 % This does not generate exactly the same result of the paper. The spatial
-% derivative, should not depend on frequency when it is averaged over the
-% full period.
+% derivative should not depend on frequency when it is averaged over the
+% full period, hence this result sounds plausible.
 
 % This commented function is useful for debugging
 % figure 
@@ -106,7 +106,7 @@ plot(rad2deg(amplitude_range_verification), dh_dt_square_verification, 'r', 'Lin
 hold on 
 plot(rad2deg(amplitude_range_verification), dh_dx_square_verification, '--b', 'LineWidth', 2)
 xlabel("Amplitude [deg]")
-legend('(dh/dt)^2', '(dh/dx)^2')
+legend('$(\partial h/\partial t)^2$', '$(\partial h/\partial x)^2$','Interpreter','latex')
 grid on
 
 
@@ -118,6 +118,9 @@ freq_range_verification = linspace(0.000001, 3.0, interval_number); % [Hz]
 
 dh_dt_square_torque = zeros(interval_number, interval_number);
 dh_dx_square_torque = zeros(interval_number, interval_number);
+T_fin_simplified = zeros(interval_number, interval_number);
+T_fin_simplified_explicit = zeros(interval_number, interval_number);
+
 
 for i_ampl = 1:length(amplitude_range_verification)
 
@@ -137,6 +140,12 @@ for i_ampl = 1:length(amplitude_range_verification)
         dh_dx_square_temp = trapz(time_vect, ... 
             (tan(theta_0_verification * sin(2*pi*f_verification*time_vect))).^2);
         dh_dx_square_torque(i_ampl, i_freq) = 1/T * dh_dx_square_temp;
+
+
+        T_fin_simplified_explicit_temp = trapz(time_vect, ... 
+            rho*A/2*4*pi^2*f_verification^2*theta_0_verification^2*x^2*sec(theta_0_verification*sin(2*pi*f_verification*time_vect)).^4.*cos(2*pi*f_verification*time_vect).^2);
+        T_fin_simplified_explicit(i_ampl, i_freq) = 1/T * T_fin_simplified_explicit_temp;
+
     end 
 
 end
@@ -144,22 +153,46 @@ end
 
 % Thrust -- CAVEAT: this requires "u"! Make sure to select appropriate
 % values
-T_fin = rho * A / 2 * (dh_dt_square_torque - u^git sta2 .* dh_dx_square_torque);
-
-T_fin_simplified = rho * A / 2 * (dh_dt_square_torque - u^2 .* dh_dx_square_torque);  % TODO: update
-
+T_fin = rho * A / 2 * (dh_dt_square_torque - u^2 .* dh_dx_square_torque);
 
 figure 
 surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin)
 ylabel("$f$ [Hz]",'Interpreter','latex')
 xlabel("\theta_0 [deg]")
 zlabel("thrust [N]")
+title("Full propulsion model")
 grid on
 
-% TODO Insert here the equation derived in OsCar work as Eq. 11 and draw the
-% corresponding surface
+
+figure
+surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin-T_fin_simplified_explicit)
+ylabel("$f$ [Hz]",'Interpreter','latex')
+xlabel("\theta_0 [deg]")
+zlabel("thrust [N]")
+title('Difference between models')
+grid on
 
 
+figure
+surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin_simplified_explicit)
+ylabel("$f$ [Hz]",'Interpreter','latex')
+xlabel("\theta_0 [deg]")
+zlabel("thrust [N]")
+title('Simplified models')
+grid on
+
+
+% Calculation of the relative error
+rel_err = abs(T_fin_simplified_explicit - T_fin) ./ abs(T_fin);
+rel_err = abs(T_fin_simplified_explicit - T_fin) ./ max(abs(T_fin), eps);  % eps avoids division by zero
+
+figure
+surf(rad2deg(amplitude_range_verification), freq_range_verification, rel_err)
+ylabel("$f$ [Hz]",'Interpreter','latex')
+xlabel("\theta_0 [deg]")
+zlabel("thrust [N]")
+title('Relative error')
+grid on
 
 
 %% Desired force calculation -- these values are to compute the thrust force output at a specific 
