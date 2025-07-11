@@ -162,20 +162,19 @@ end
 
 
 figure 
-surf(rad2deg(amplitude_range_verification), freq_range_verification, dh_dt_square_3d)
-ylabel("$f$ [Hz]",'Interpreter','latex')
-xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+surf(freq_range_verification,rad2deg(amplitude_range_verification), dh_dt_square_3d)
+xlabel("$f$ [Hz]",'Interpreter','latex')
+ylabel("$\theta_0$ [deg]",'Interpreter','latex')
 title("$(\partial h/\partial t)^2$",'Interpreter','latex')
 grid on
 
 
 figure 
-surf(rad2deg(amplitude_range_verification), freq_range_verification, dh_dx_square_3d)
-ylabel("$f$ [Hz]",'Interpreter','latex')
-xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+surf(freq_range_verification,rad2deg(amplitude_range_verification), dh_dx_square_3d)
+xlabel("$f$ [Hz]",'Interpreter','latex')
+ylabel("$\theta_0$ [deg]",'Interpreter','latex')
 title("$(\partial h/\partial x)^2$",'Interpreter','latex')
 grid on
-
 
 
 
