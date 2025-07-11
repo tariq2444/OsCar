@@ -25,8 +25,14 @@ u = 0.184; % [m/s] surge speed
 
 % Verification plots
 theta_0 = 30.0; % [deg]
+theta_max = 68.7549; % [deg]
 f_min = 0.001; % [Hz]
 f_max = 2.0; % [Hz]
+
+compare_2D_3D = true; % flag to make sure that 2D and 3D plot are consiste
+compare_at_freq = 2.00; % pick any frequency in the desired range [f_min, f_max]
+compare_at_angle = 30.0; % pick any theta_0 in the desired range [0, theta_max]
+debug_verbose = true; % enable this flag to print all the values of the derivative across all the 2D and 3D plots
 
 % Thrust calculation
 theta_0_thrust = 35.0; % [rad]
@@ -44,7 +50,8 @@ f_max_thrust = 3.0; % [Hz]
 
 disp("Generating 2D derivatives...")
 % 2.1) Frequency range plot
-freq_range_verification = linspace(f_min, f_max, interval_number); % [Hz]
+freq_range_verification = unique([linspace(f_min, f_max, interval_number), compare_at_freq]); % [Hz]
+freq_range_verification = sort(freq_range_verification);
 theta_0_verification = deg2rad(theta_0); % [rad]
 
 dh_dt_square_verification = zeros(interval_number, 1);
@@ -87,9 +94,27 @@ fontsize(scale=1.35)
 % plot(trapz(time_vect,(tan(theta_0_verification*sin(2*pi*f_verification*time_vect))).^2))
 
 
+if compare_2D_3D
+    [~, idx_f] = min(abs(freq_range_verification - compare_at_freq));
+    
+    freq_range_verification(idx_f);
+
+    val_dh_dt_2d = dh_dt_square_verification(idx_f);
+    val_dh_dx_2d = dh_dx_square_verification(idx_f);
+
+    if debug_verbose
+        disp("Verification of spatial derivative at " + freq_range_verification(idx_f) + " [Hz] and " + rad2deg(theta_0_verification) + " [deg]");
+        val_dh_dt_2d
+        val_dh_dx_2d
+    end
+
+end
+
+
 % 2.2) Amplitude range plot
-amplitude_range_verification = linspace(deg2rad(0), deg2rad(68.7549), interval_number); % [rad]
-f_verification = 1; % [Hz]
+amplitude_range_verification = unique([linspace(deg2rad(0), deg2rad(theta_max), interval_number), deg2rad(30)]); % [rad]
+amplitude_range_verification = sort(amplitude_range_verification);
+f_verification = compare_at_freq; % [Hz]
 
 dh_dt_square_verification = zeros(interval_number, 1);
 dh_dx_square_verification = zeros(interval_number, 1);
@@ -125,11 +150,31 @@ grid on
 fontsize(scale=1.35) 
 
 
+if compare_2D_3D
+    [~, idx_t] = min(abs(amplitude_range_verification - deg2rad(compare_at_angle)));
+
+    rad2deg(amplitude_range_verification(idx_t));
+
+    val_dh_dt_2d = dh_dt_square_verification(idx_t);
+    val_dh_dx_2d = dh_dx_square_verification(idx_t);
+
+    if debug_verbose
+        disp("Verification of temporal derivative at " + f_verification + " [Hz] and " + rad2deg(amplitude_range_verification(idx_t)) + " [deg]");
+        val_dh_dt_2d
+        val_dh_dx_2d
+    end
+
+
+end
+
+
 % 3D view of the derivatives
 disp("Generating 3D derivatives...")
 interval_number = 100; % reduced from the original value to ease computational burden 
-amplitude_range_verification = linspace(deg2rad(0), deg2rad(68.7549), interval_number); % [rad]
-freq_range_verification = linspace(f_min, f_max, interval_number); % [Hz]
+amplitude_range_verification = unique([linspace(deg2rad(0), deg2rad(theta_max), interval_number), deg2rad(30)]); % [rad]
+amplitude_range_verification = sort(amplitude_range_verification);
+freq_range_verification = unique([linspace(f_min, f_max, interval_number), compare_at_freq]); % [Hz]
+freq_range_verification = sort(freq_range_verification);
 
 dh_dt_square_3d = zeros(interval_number, interval_number);
 dh_dx_square_3d = zeros(interval_number, interval_number);
@@ -142,8 +187,6 @@ for i_ampl = 1:length(amplitude_range_verification)
         T = 1/f_verification;
         theta_0_verification = amplitude_range_verification(i_ampl);
     
-        % samples_per_period = max(interval_number, ceil(T / Dt)); %
-        % TODO_remove
         time_vect = linspace(0, T, 1000); % time vector
         
         % time derivative
@@ -178,6 +221,37 @@ grid on
 
 
 
+if compare_2D_3D
+    % Finally verifying consistency at f = compare_at_freq Hz and 
+    % theta_0 = compare_at_angle deg of the 2D and 3D plots. 
+    % If the values are not EXACTLY the same, the execution is
+    % interrupted here
+
+    [~, idx_f] = min(abs(freq_range_verification - compare_at_freq));
+    [~, idx_t] = min(abs(amplitude_range_verification - deg2rad(compare_at_angle)));
+
+    freq_range_verification(idx_f);
+    rad2deg(amplitude_range_verification(idx_t));
+
+    val_dh_dt_3d = dh_dt_square_3d(idx_t, idx_f);
+    val_dh_dx_3d = dh_dx_square_3d(idx_t, idx_f);
+
+    assert(val_dh_dt_3d == val_dh_dt_2d,'Temporal derivative Error','3D plot not correct') 
+    assert(val_dh_dx_3d == val_dh_dx_2d,'Spatial derivative Error','3D plot not correct') 
+
+
+    if debug_verbose
+        disp("Verification of 3D derivatives at " + freq_range_verification(idx_f) + " [Hz] and " + rad2deg(amplitude_range_verification(idx_t)) + " [deg]");
+        val_dh_dt_3d
+        val_dh_dx_2d
+    end
+
+end
+
+
+
+
+
 %% 3) Plot thrust
 disp("Generating trust comparisons...")
 
@@ -195,14 +269,18 @@ T_fin_oscar = zeros(interval_number, interval_number);
 for i_ampl = 1:length(amplitude_range_verification)
 
     for i_freq = 1:length(freq_range_verification)
+    
 
         f_verification = freq_range_verification(i_freq);
         T = 1/f_verification;
         theta_0_verification = amplitude_range_verification(i_ampl);
-    
-        % time derivative
+     
         samples_per_period = max(interval_number, ceil(T / Dt));
         time_vect = linspace(0, T, samples_per_period); % time vector
+        % time_vect = linspace(0, T, 1000); % time vector % TODO run again
+        % here with fixed time range
+
+        % time derivative
         dh_dt_square_temp = trapz(time_vect, ...
             (2*pi*f_verification*theta_0_verification*x*sec(theta_0_verification*sin(2*pi*f_verification*time_vect)).^2.*cos(2*pi*f_verification*time_vect)).^2);
         dh_dt_square_torque(i_ampl, i_freq) = 1/T * dh_dt_square_temp;
