@@ -17,13 +17,17 @@ clc
 interval_number = 100; % caveat: modified in section 3.
 Dt = 0.001; % time step for the numerical integration
 
-% The following two parameters are selected as in ref #666. Uncomment to
+% The following parameters are selected as in ref #666. Uncomment to
 % reproduce the results of the paper.
-% A = pi*(0.12/2)^2; % [m]
+% A = pi*(0.165/2)^2; % [m]
 % x = 0.36/3; % length of the caudal fin
+% u = 0.08; % [m/s] surge speed
+% rho = 1000; % [kg/m3]
+
+% The following parameters are relative to OsCar are developed in this
+% publication
 A = 0.0194; % [m] OsCar, open caudal fin configuration
 x = 0.131; % OsCar, length of the open caudal fin configuration
-
 rho = 1000; % [kg/m3]
 u = 0.184; % [m/s] surge speed
 
@@ -40,10 +44,14 @@ compare_at_angle = 30.0; % pick any theta_0 in the desired range [0, theta_max]
 debug_verbose = false; % enable this flag to print all the values of the derivative across all the 2D and 3D plots
 
 % Thrust plot calculation
-theta_0_thrust = 35.0; % [rad] - max angle for the calculation
+theta_0_thrust = 35.0; % [deg] - max angle for the calculation
 f_min_thrust = 0.001; % [Hz]
 f_max_thrust = 3.0; % [Hz]
 
+
+% Calculate force at specific frequency and amplitude
+f_thrust_scalar = 2; % [Hz]
+theta_0_thrust_scalar = deg2rad(30); % [rad]
 
 
 %% Saving the expressions for convenience
@@ -304,7 +312,7 @@ for i_ampl = 1:length(amplitude_range_verification)
 
 
         
-
+        % 
         % f_verification = freq_range_verification(i_freq);
         % T = 1/f_verification;
         % theta_0_verification = amplitude_range_verification(i_ampl);
@@ -313,16 +321,16 @@ for i_ampl = 1:length(amplitude_range_verification)
         % time_vect = linspace(0, T, samples_per_period); % time vector
         % % time_vect = linspace(0, T, samples_per_period); % time vector % TODO run again
         % % here with fixed time range
-
-        % time derivative
-        dh_dt_square_temp = trapz(time_vect, ...
-            (2*pi*f_verification*theta_0_verification*x*sec(theta_0_verification*sin(2*pi*f_verification*time_vect)).^2.*cos(2*pi*f_verification*time_vect)).^2);
-        dh_dt_square_torque(i_ampl, i_freq) = 1/T * dh_dt_square_temp;
-
-        % spatial derivative
-        dh_dx_square_temp = trapz(time_vect, ... 
-            (tan(theta_0_verification * sin(2*pi*f_verification*time_vect))).^2);
-        dh_dx_square_torque(i_ampl, i_freq) = 1/T * dh_dx_square_temp;
+        % 
+        % % time derivative
+        % dh_dt_square_temp = trapz(time_vect, ...
+        %     (2*pi*f_verification*theta_0_verification*x*sec(theta_0_verification*sin(2*pi*f_verification*time_vect)).^2.*cos(2*pi*f_verification*time_vect)).^2);
+        % dh_dt_square_torque(i_ampl, i_freq) = 1/T * dh_dt_square_temp;
+        % 
+        % % spatial derivative
+        % dh_dx_square_temp = trapz(time_vect, ... 
+        %     (tan(theta_0_verification * sin(2*pi*f_verification*time_vect))).^2);
+        % dh_dx_square_torque(i_ampl, i_freq) = 1/T * dh_dx_square_temp;
 
 
         % Reduced thrust propulsion model
@@ -419,38 +427,28 @@ grid on
 %% Desired force calculation -- these values are to compute the thrust force output at a specific 
 % frequency, amplitude, area and fluid density. 
 
-f_desired = 2;
-theta_0_desired = deg2rad(30);
-rho = 1000; % [kg/m3]
-A = pi*(0.12/2)^2; % [m]
-u = 0.184; % [m/s] surge speed
-
-disp("Calculating thurst force at ..." + f_desired + " [Hz], " + rad2deg(theta_0_desired) + " [deg], and u=" + u + " [m/s]");
+disp("Calculating thurst force at ..." + f_thrust_scalar + " [Hz], " + rad2deg(theta_0_thrust_scalar) + " [deg], and u=" + u + " [m/s]");
 
 
-f = f_desired;
-theta_0 = theta_0_desired;
+f_verification = f_thrust_scalar;
+T = 1/f_verification;
+theta_0_verification = theta_0_thrust_scalar;
+samples_per_period = ceil(T / Dt);
 
+time_vect = linspace(0, T, samples_per_period); % time vector
 
-for i_t = 1:length(time_vect)
-    t = time_vect(i_t);
-    dh_dt_square_temp = dh_dt_square_temp + Dt * (2*pi*f*theta_0 * x * sec(theta_0 * sin(2*pi*f*t))^2 * cos(2*pi*f*t))^2;
-end 
-dh_dt_square_desired = 1/T * dh_dt_square_temp;
+% time derivative
+dh_dt_square_temp_thrust = trapz(time_vect, ...
+    (2*pi*f_verification*theta_0_verification*x*sec(theta_0_verification*sin(2*pi*f_verification*time_vect)).^2.*cos(2*pi*f_verification*time_vect)).^2);
+dh_dt_square_thrust = 1/T * dh_dt_square_temp_thrust;
 
 % spatial derivative
-dh_dx_square_temp = 0;
-time_vect = linspace(0, T, 1/Dt); % time vector
-for i_t = 1:length(time_vect)
-    t = time_vect(i_t);
-    dh_dx_square_temp = dh_dx_square_temp + Dt * (tan(theta_0 * sin(2*pi*f*t)))^2;
-end 
-dh_dx_square_desired = 1/T * dh_dx_square_temp;
+dh_dx_square_temp_thrust = trapz(time_vect, ... 
+    (tan(theta_0_verification * sin(2*pi*f_verification*time_vect))).^2);
+dh_dx_square_thrust = 1/T * dh_dx_square_temp_thrust;
 
-disp("Desired force (full model) = ")
-T_fin_desired = rho * A / 2 * (dh_dt_square_desired - u^2 * dh_dx_square_desired)
+disp("Generate thrust force (full model) = ")
+T_fin_desired = rho * A / 2 * (dh_dt_square_thrust - u^2 * dh_dx_square_thrust)
 
-% TODO
-% disp("Desired force (reduced model) = ")
-% T_fin_desired = rho * A / 2 * (dh_dt_square_desired)
-
+disp("Desired thrust force (reduced model) = ")
+T_fin_desired = rho * A / 2 * (dh_dt_square_thrust)
