@@ -282,7 +282,6 @@ freq_range_verification = linspace(f_min_thrust, f_max_thrust, interval_number);
 dh_dt_square_torque = zeros(interval_number, interval_number);
 dh_dx_square_torque = zeros(interval_number, interval_number);
 T_fin_reduced = zeros(interval_number, interval_number);
-T_fin_reduced_explicit = zeros(interval_number, interval_number);
 
 
 for i_ampl = 1:length(amplitude_range_verification)
@@ -307,22 +306,18 @@ for i_ampl = 1:length(amplitude_range_verification)
             (tan(theta_0_verification * sin(2*pi*f_verification*time_vect))).^2);
         dh_dx_square_torque(i_ampl, i_freq) = 1/T * dh_dx_square_temp;
        
-
-        % Reduced thrust propulsion model
-        T_fin_reduced_explicit_temp = trapz(time_vect, ... 
-            rho*A/2*4*pi^2*f_verification^2*theta_0_verification^2*x^2*sec(theta_0_verification*sin(2*pi*f_verification*time_vect)).^4.*cos(2*pi*f_verification*time_vect).^2);
-        T_fin_reduced_explicit(i_ampl, i_freq) = 1/T * T_fin_reduced_explicit_temp;
-
-
     end 
 
 end
 
 
-
 % Thrust -- CAVEAT: this requires "u"! Make sure to select appropriate
 % values
 T_fin = rho * A / 2 * (dh_dt_square_torque - u^2 .* dh_dx_square_torque);
+% Reduced thrust propulsion model
+T_fin_reduced = rho*A/2*dh_dt_square_torque;
+
+
 
 figure 
 surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin)
@@ -338,7 +333,7 @@ ax.GridAlpha = 0.5;
 ax.MinorGridAlpha = 0.3;
 
 figure
-surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin_reduced_explicit)
+surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin_reduced)
 ylabel("$f$ [Hz]",'Interpreter','latex')
 xlabel("$\theta_0$ [deg]",'Interpreter','latex')
 zlabel("$T^r_{f}$ [N]", 'Interpreter','latex')
@@ -354,7 +349,7 @@ ax.MinorGridAlpha = 0.3;
 
 
 figure
-surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin-T_fin_reduced_explicit)
+surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin-T_fin_reduced)
 ylabel("$f$ [Hz]",'Interpreter','latex')
 xlabel("$\theta_0$ [deg]",'Interpreter','latex')
 zlabel("$T$ [N]", 'Interpreter','latex')
@@ -369,8 +364,8 @@ ax.MinorGridAlpha = 0.3;
 
 
 % Calculation of the symmetric mean absolute percentage error 
-SMAPE = abs(T_fin_reduced_explicit - T_fin) ...
-          ./ (0.5*(abs(T_fin) + abs(T_fin_reduced_explicit))) * 100;
+SMAPE = abs(T_fin_reduced - T_fin) ...
+          ./ (0.5*(abs(T_fin) + abs(T_fin_reduced))) * 100;
 
 
 % Full error
