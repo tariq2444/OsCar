@@ -289,8 +289,6 @@ for i_ampl = 1:length(amplitude_range_verification)
 
     for i_freq = 1:length(freq_range_verification)
     
-
-        % FROM HERE
         f_verification = freq_range_verification(i_freq);
         T = 1/f_verification;
         theta_0_verification = amplitude_range_verification(i_ampl);
@@ -308,30 +306,7 @@ for i_ampl = 1:length(amplitude_range_verification)
         dh_dx_square_temp = trapz(time_vect, ... 
             (tan(theta_0_verification * sin(2*pi*f_verification*time_vect))).^2);
         dh_dx_square_torque(i_ampl, i_freq) = 1/T * dh_dx_square_temp;
-        % TO HERE
-
-
-        
-        % 
-        % f_verification = freq_range_verification(i_freq);
-        % T = 1/f_verification;
-        % theta_0_verification = amplitude_range_verification(i_ampl);
-        % 
-        % samples_per_period = max(interval_number, ceil(T / Dt));
-        % time_vect = linspace(0, T, samples_per_period); % time vector
-        % % time_vect = linspace(0, T, samples_per_period); % time vector % TODO run again
-        % % here with fixed time range
-        % 
-        % % time derivative
-        % dh_dt_square_temp = trapz(time_vect, ...
-        %     (2*pi*f_verification*theta_0_verification*x*sec(theta_0_verification*sin(2*pi*f_verification*time_vect)).^2.*cos(2*pi*f_verification*time_vect)).^2);
-        % dh_dt_square_torque(i_ampl, i_freq) = 1/T * dh_dt_square_temp;
-        % 
-        % % spatial derivative
-        % dh_dx_square_temp = trapz(time_vect, ... 
-        %     (tan(theta_0_verification * sin(2*pi*f_verification*time_vect))).^2);
-        % dh_dx_square_torque(i_ampl, i_freq) = 1/T * dh_dx_square_temp;
-
+       
 
         % Reduced thrust propulsion model
         T_fin_reduced_explicit_temp = trapz(time_vect, ... 
@@ -448,7 +423,7 @@ dh_dx_square_temp_thrust = trapz(time_vect, ...
 dh_dx_square_thrust = 1/T * dh_dx_square_temp_thrust;
 
 disp("Generate thrust force (full model) = ")
-T_fin_desired = rho * A / 2 * (dh_dt_square_thrust - u^2 * dh_dx_square_thrust)
+T_fin_model_complete = rho * A / 2 * (dh_dt_square_thrust - u^2 * dh_dx_square_thrust)
 
 disp("Desired thrust force (reduced model) = ")
-T_fin_desired = rho * A / 2 * (dh_dt_square_thrust)
+T_fin_model_reduced = rho * A / 2 * (dh_dt_square_thrust)
