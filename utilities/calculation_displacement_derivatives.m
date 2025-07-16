@@ -44,7 +44,7 @@ compare_at_angle = 30.0; % pick any theta_0 in the desired range [0, theta_max]
 debug_verbose = false; % enable this flag to print all the values of the derivative across all the 2D and 3D plots
 
 % Thrust plot calculation
-theta_0_thrust = 35.0; % [deg] - max angle for the calculation
+theta_0_thrust = 80.0; % [deg] - max angle for the calculation
 f_min_thrust = 0.001; % [Hz]
 f_max_thrust = 3.0; % [Hz]
 
@@ -229,6 +229,7 @@ title("$(\partial h/\partial t)^2$",'Interpreter','latex')
 grid on
 
 
+
 figure 
 surf(freq_range_verification,rad2deg(amplitude_range_verification), dh_dx_square_3d)
 xlabel("$f$ [Hz]",'Interpreter','latex')
@@ -281,7 +282,6 @@ freq_range_verification = linspace(f_min_thrust, f_max_thrust, interval_number);
 
 dh_dt_square_torque = zeros(interval_number, interval_number);
 dh_dx_square_torque = zeros(interval_number, interval_number);
-T_fin_reduced = zeros(interval_number, interval_number);
 
 
 for i_ampl = 1:length(amplitude_range_verification)
@@ -347,7 +347,6 @@ ax.MinorGridAlpha = 0.3;
 
 
 
-
 figure
 surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin-T_fin_reduced)
 ylabel("$f$ [Hz]",'Interpreter','latex')
@@ -364,25 +363,69 @@ ax.MinorGridAlpha = 0.3;
 
 
 % Calculation of the symmetric mean absolute percentage error 
-SMAPE = abs(T_fin_reduced - T_fin) ...
+SMAPE_raw = abs(T_fin_reduced - T_fin) ...
           ./ (0.5*(abs(T_fin) + abs(T_fin_reduced))) * 100;
 
+% Applying a corrective factor for small denominators
+numerator = abs(T_fin_reduced - T_fin);
+denominator = 0.5 * (abs(T_fin) + abs(T_fin_reduced));
+denominator_is_valid = denominator > 1e-5;
 
-% Full error
+SMAPE = NaN(size(SMAPE_raw));
+SMAPE(denominator_is_valid) = numerator(denominator_is_valid) ./ denominator((denominator_is_valid)) * 100;
+
+
+% Raw SMAPE 
+figure
+surf(rad2deg(amplitude_range_verification), freq_range_verification, SMAPE_raw)
+ylabel("$f$ [Hz]",'Interpreter','latex')
+xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+zlabel("SMAPE [%]")
+title('SMAPE raw')
+grid on
+% colormap winter;
+
+
+
+% SMAPE with numerical corrections
 figure
 surf(rad2deg(amplitude_range_verification), freq_range_verification, SMAPE)
 ylabel("$f$ [Hz]",'Interpreter','latex')
 xlabel("$\theta_0$ [deg]",'Interpreter','latex')
 zlabel("SMAPE [%]")
 title('SMAPE')
-grid on
+grid minor
+ax = gca;
+ax.GridAlpha = 0.5;
+ax.MinorGridAlpha = 0.3;
+% grid on
+% colormap winter;
 
 
-% Reduced plot
+% only extracting the area where the model is "sufficiently" accuracy
+threshold_err = 100; % [%] of max error accepted between the two models
+valid_mask = SMAPE < threshold_err;
+SMAPE_plot = SMAPE;
+SMAPE_plot(~valid_mask) = NaN; % mask invalid values
+
+figure
+surf(rad2deg(amplitude_range_verification), freq_range_verification, SMAPE_plot')
+ylabel("$f$ [Hz]",'Interpreter','latex')
+xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+zlabel("SMAPE [%]")
+title(['SMAPE < ', num2str(threshold_err), '%'])
+grid minor
+ax = gca;
+ax.GridAlpha = 0.5;
+ax.MinorGridAlpha = 0.3;
+% colorbar
+
+
+
+% Reduced SMAPE plot (only to angles < threshold)
 SMAPE_reduced = SMAPE;
-[theta_mesh, f_mesh] = meshgrid(rad2deg(amplitude_range_verification), freq_range_verification);   % both are M × N
-
-SMAPE_reduced(theta_mesh < 10) = NaN;                   % mask
+[theta_mesh, f_mesh] = meshgrid(rad2deg(amplitude_range_verification), freq_range_verification);
+SMAPE_reduced(theta_mesh < 10) = NaN; 
 
 figure
 surf(theta_mesh, f_mesh, SMAPE_reduced)
@@ -397,7 +440,7 @@ grid on
 %% Desired force calculation -- these values are to compute the thrust force output at a specific 
 % frequency, amplitude, area and fluid density. 
 
-disp("Calculating thurst force at ..." + f_thrust_scalar + " [Hz], " + rad2deg(theta_0_thrust_scalar) + " [deg], and u=" + u + " [m/s]");
+disp("Calculating thurst force at " + f_thrust_scalar + " [Hz], " + rad2deg(theta_0_thrust_scalar) + " [deg], and u=" + u + " [m/s] ...");
 
 
 f_verification = f_thrust_scalar;
