@@ -24,7 +24,7 @@ rho = 1000; % [kg/m3]
 
 
 % Thrust plot calculation
-theta_0_thrust = 70.0; % [deg] - max angle for the calculation
+theta_0_thrust = 80.0; % [deg] - max angle for the calculation
 f_min_thrust = 0.001; % [Hz]
 f_max_thrust = 3.0; % [Hz]
 u_min = 0.01; % [m/s]
@@ -79,15 +79,28 @@ for i_ampl = 1:length(amplitude_range_verification)
 
 end
 
+% Just extracting a slice at the typical OsCar speed to make sure that this 
+% analysis is consisten with previous results
+[~, slice] = min(abs(u_range_verification - 0.184));
 
-slice = 1;
+
+% Exluded percentage of models based on:
+T_is_valid = (T_fin> 0.0);
+perc_T_valid = sum(T_is_valid, "all")/ (interval_number)^3 * 100
+T_reduced_is_valid = (T_fin_reduced> 0.0);
+perc_T_reduced_valid = sum(T_reduced_is_valid, "all")/ (interval_number)^3 * 100
+
+% removing spurious numerical elements
+T_fin(T_fin< 1e-5) = NaN;
+T_fin_reduced(T_fin_reduced<1e-5) = NaN;
+
 
 figure
-surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin(:,:,slice)-T_fin_reduced(:,:,slice))
+surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin(:,:,slice))
 ylabel("$f$ [Hz]",'Interpreter','latex')
 xlabel("$\theta_0$ [deg]",'Interpreter','latex')
 zlabel("$T$ [N]", 'Interpreter','latex')
-title('Difference between models')
+title('Full model (singl slice at usual OsCar speed)')
 grid on
 fontsize(scale=1.35) 
 grid minor
@@ -96,3 +109,91 @@ ax.GridAlpha = 0.5;
 ax.MinorGridAlpha = 0.3;
 
 
+figure
+surf(rad2deg(amplitude_range_verification), freq_range_verification, abs(T_fin(:,:,slice)-T_fin_reduced(:,:,slice)))
+ylabel("$f$ [Hz]",'Interpreter','latex')
+xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+zlabel("$T$ [N]", 'Interpreter','latex')
+title('Difference between models (singl slice at usual OsCar speed)')
+grid on
+fontsize(scale=1.35) 
+grid minor
+ax = gca;
+ax.GridAlpha = 0.5;
+ax.MinorGridAlpha = 0.3;
+
+
+
+% calculation of the relative error
+err_rel_raw = abs(T_fin-T_fin_reduced) ./ max(abs(T_fin), abs(T_fin_reduced)) * 100;
+
+% Applying a corrective factor for small denominators
+numerator = abs(T_fin - T_fin_reduced);
+denominator = max(abs(T_fin), abs(T_fin_reduced)); % T_fin is the groundtruth, but the T_fin_reduced is always bigger by definition
+denominator_is_valid = denominator > 0.0;
+numerator_is_valid = numerator > 0.0;
+model_valid = denominator_is_valid & numerator_is_valid;
+err_rel = NaN(size(err_rel_raw));
+err_rel(model_valid) = numerator(model_valid) ./ denominator(model_valid) * 100;
+
+% Exluded percentage of models based on:
+perc_denom_valid = sum(denominator_is_valid, "all")/ (interval_number)^3 * 100
+perc_num_valid = sum(numerator_is_valid, "all")/ (interval_number)^3 * 100
+
+
+
+err_rel_mean_theta=zeros(size(amplitude_range_verification, 2), size(u_range_verification, 2));
+err_rel_mean_freq=zeros(size(freq_range_verification, 2), size(u_range_verification, 2));
+
+for i_speed = 1:length(u_range_verification)
+    err_rel_mean_theta(i_speed,:) = mean(err_rel(:,:,i_speed),1,"omitnan");
+    err_rel_mean_freq(i_speed,:) = mean(err_rel(:,:,i_speed),2,"omitnan");
+end 
+
+
+
+figure
+surf(rad2deg(amplitude_range_verification), u_range_verification, err_rel_mean_theta)
+xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+ylabel("$u$ [m/s]",'Interpreter','latex')
+zlabel("Rel. err [%]", 'Interpreter','latex')
+title('Rel error (angle, speed)')
+grid on
+fontsize(scale=1.35) 
+grid minor
+ax = gca;
+ax.GridAlpha = 0.5;
+ax.MinorGridAlpha = 0.3;
+colorbar
+
+
+
+figure
+surf(freq_range_verification, u_range_verification, err_rel_mean_freq)
+xlabel("$f$ [Hz]",'Interpreter','latex')
+ylabel("$u$ [m/s]",'Interpreter','latex')
+zlabel("Rel. err [%]", 'Interpreter','latex')
+title('Rel error (freq, speed)')
+grid on
+fontsize(scale=1.35) 
+grid minor
+ax = gca;
+ax.GridAlpha = 0.5;
+ax.MinorGridAlpha = 0.3;
+colorbar
+
+
+
+
+[~, idx_u] = min(abs(u_range_verification - 0.184));
+
+verification_err_rel_raw_u = err_rel_raw(:, :, idx_u);
+err_rel_mean_theta = mean(verification_err_rel_raw_u,1,"omitnan");
+
+figure
+plot(rad2deg(amplitude_range_verification), err_rel_mean_theta)
+ylabel("Rel. err [%]",'Interpreter','latex')
+xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+title('Rel err vs $\theta_0$ [%]','Interpreter','latex')
+grid on
+fontsize(scale=1.35) 
