@@ -44,9 +44,14 @@ compare_at_angle = 30.0; % pick any theta_0 in the desired range [0, theta_max]
 debug_verbose = false; % enable this flag to print all the values of the derivative across all the 2D and 3D plots
 
 % Thrust plot calculation
-theta_0_thrust = 80.0; % [deg] - max angle for the calculation
+theta_0_thrust = 20.0; % [deg] - max angle for the calculation
 f_min_thrust = 0.001; % [Hz]
 f_max_thrust = 3.0; % [Hz]
+
+
+% Relative error analysis between the two models
+calculate_rmse = true; 
+calculate_smape = true; % this was shown having numerical sensitivity as the signals are small. Not relevant
 
 
 % Calculate force at specific frequency and amplitude
@@ -271,8 +276,6 @@ end
 
 
 
-
-
 %% 3) Plot thrust
 disp("Generating trust comparisons...")
 
@@ -292,7 +295,6 @@ for i_ampl = 1:length(amplitude_range_verification)
         T = 1/f_verification;
         theta_0_verification = amplitude_range_verification(i_ampl);
         samples_per_period = ceil(T / Dt);
-
 
         time_vect = linspace(0, T, samples_per_period); % time vector
 
@@ -317,6 +319,14 @@ T_fin = rho * A / 2 * (dh_dt_square_torque - u^2 .* dh_dx_square_torque);
 % Reduced thrust propulsion model
 T_fin_reduced = rho*A/2*dh_dt_square_torque;
 
+% saving raw values
+T_fin_raw = T_fin;
+T_fin_reduced_raw = T_fin_reduced;
+
+% removing spurious numerical elements
+T_fin(T_fin< 1e-5) = NaN;
+T_fin_reduced(T_fin_reduced<1e-5) = NaN;
+
 
 
 figure 
@@ -332,6 +342,22 @@ ax = gca;
 ax.GridAlpha = 0.5;
 ax.MinorGridAlpha = 0.3;
 
+
+
+figure 
+surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin_raw)
+ylabel("$f$ [Hz]",'Interpreter','latex')
+xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+zlabel("$T_f$ [N]", 'Interpreter','latex')
+title("Full propulsion model (raw)")
+grid on
+fontsize(scale=1.35) 
+grid minor
+ax = gca;
+ax.GridAlpha = 0.5;
+ax.MinorGridAlpha = 0.3;
+
+
 figure
 surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin_reduced)
 ylabel("$f$ [Hz]",'Interpreter','latex')
@@ -345,10 +371,8 @@ ax = gca;
 ax.GridAlpha = 0.5;
 ax.MinorGridAlpha = 0.3;
 
-
-
 figure
-surf(rad2deg(amplitude_range_verification), freq_range_verification, T_fin-T_fin_reduced)
+surf(rad2deg(amplitude_range_verification), freq_range_verification, abs(T_fin-T_fin_reduced))
 ylabel("$f$ [Hz]",'Interpreter','latex')
 xlabel("$\theta_0$ [deg]",'Interpreter','latex')
 zlabel("$T$ [N]", 'Interpreter','latex')
@@ -362,79 +386,163 @@ ax.MinorGridAlpha = 0.3;
 
 
 
-% Calculation of the symmetric mean absolute percentage error 
-SMAPE_raw = abs(T_fin_reduced - T_fin) ...
-          ./ (0.5*(abs(T_fin) + abs(T_fin_reduced))) * 100;
-
-% Applying a corrective factor for small denominators
-numerator = abs(T_fin_reduced - T_fin);
-denominator = 0.5 * (abs(T_fin) + abs(T_fin_reduced));
-denominator_is_valid = denominator > 1e-5;
-
-SMAPE = NaN(size(SMAPE_raw));
-SMAPE(denominator_is_valid) = numerator(denominator_is_valid) ./ denominator((denominator_is_valid)) * 100;
-
-
-% Raw SMAPE 
 figure
-surf(rad2deg(amplitude_range_verification), freq_range_verification, SMAPE_raw)
+surf(rad2deg(amplitude_range_verification), freq_range_verification, abs(T_fin_raw-T_fin_reduced_raw))
 ylabel("$f$ [Hz]",'Interpreter','latex')
 xlabel("$\theta_0$ [deg]",'Interpreter','latex')
-zlabel("SMAPE [%]")
-title('SMAPE raw')
+zlabel("$T$ [N]", 'Interpreter','latex')
+title('Difference between models (raw)')
 grid on
-% colormap winter;
-
-
-
-% SMAPE with numerical corrections
-figure
-surf(rad2deg(amplitude_range_verification), freq_range_verification, SMAPE)
-ylabel("$f$ [Hz]",'Interpreter','latex')
-xlabel("$\theta_0$ [deg]",'Interpreter','latex')
-zlabel("SMAPE [%]")
-title('SMAPE')
+fontsize(scale=1.35) 
 grid minor
 ax = gca;
 ax.GridAlpha = 0.5;
 ax.MinorGridAlpha = 0.3;
-% grid on
-% colormap winter;
 
 
-% only extracting the area where the model is "sufficiently" accuracy
-threshold_err = 100; % [%] of max error accepted between the two models
-valid_mask = SMAPE < threshold_err;
-SMAPE_plot = SMAPE;
-SMAPE_plot(~valid_mask) = NaN; % mask invalid values
 
 figure
-surf(rad2deg(amplitude_range_verification), freq_range_verification, SMAPE_plot')
+surf(rad2deg(amplitude_range_verification), freq_range_verification, max(abs(T_fin), abs(T_fin_reduced)))
 ylabel("$f$ [Hz]",'Interpreter','latex')
 xlabel("$\theta_0$ [deg]",'Interpreter','latex')
-zlabel("SMAPE [%]")
-title(['SMAPE < ', num2str(threshold_err), '%'])
+zlabel("$T$ [N]", 'Interpreter','latex')
+title('Max denominator between models (raw)')
+grid on
+fontsize(scale=1.35) 
 grid minor
 ax = gca;
 ax.GridAlpha = 0.5;
 ax.MinorGridAlpha = 0.3;
-% colorbar
+
+
+if calculate_rmse
+    
+    % calculation of the relative error
+    err_rel_raw = abs(T_fin_raw-T_fin_reduced_raw) ./ max(abs(T_fin_raw), abs(T_fin_reduced_raw)) * 100;
+
+    % Applying a corrective factor for small denominators
+    numerator = abs(T_fin - T_fin_reduced);
+    denominator = max(abs(T_fin), abs(T_fin_reduced)); % T_fin is the groundtruth, but the T_fin_reduced is always bigger by definition
+    denominator_is_valid = denominator > 1e-2;
+    numerator_is_valid = numerator > 1e-2;
+    model_valid = denominator_is_valid & numerator_is_valid;
+    err_rel = NaN(size(err_rel_raw));
+    err_rel(model_valid) = numerator(model_valid) ./ denominator(model_valid) * 100;
+
+
+    figure
+    surf(rad2deg(amplitude_range_verification), freq_range_verification, err_rel)
+    ylabel("$f$ [Hz]",'Interpreter','latex')
+    xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+    zlabel("Rel. err [%]", 'Interpreter','latex')
+    title('Error between models')
+    grid on
+    fontsize(scale=1.35) 
+    grid minor
+    ax = gca;
+    ax.GridAlpha = 0.5;
+    ax.MinorGridAlpha = 0.3;
+
+
+    err_rel_mean_theta = mean(err_rel,1,"omitnan");
+    figure
+    plot(rad2deg(amplitude_range_verification), err_rel_mean_theta)
+    ylabel("Rel. err [%]",'Interpreter','latex')
+    xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+    title('Rel err vs $\theta_0$ [%]','Interpreter','latex')
+    grid on
+    fontsize(scale=1.35) 
+
+
+    err_rel_mean_freq = mean(err_rel,2,"omitnan");
+    figure
+    plot(freq_range_verification, err_rel_mean_freq)
+    ylabel("Rel. err [%]",'Interpreter','latex')
+    xlabel("$f$ [Hz]",'Interpreter','latex')
+    title('Rel err vs f [%]','Interpreter','latex')
+    grid on
+    fontsize(scale=1.35) 
 
 
 
-% Reduced SMAPE plot (only to angles < threshold)
-SMAPE_reduced = SMAPE;
-[theta_mesh, f_mesh] = meshgrid(rad2deg(amplitude_range_verification), freq_range_verification);
-SMAPE_reduced(theta_mesh < 10) = NaN; 
+end
 
-figure
-surf(theta_mesh, f_mesh, SMAPE_reduced)
-ylabel("$f$ [Hz]",'Interpreter','latex')
-xlabel("$\theta_0$ [deg]",'Interpreter','latex')
-zlabel("SMAPE [%]")
-title("SMAPE $(\theta_0 \geq 10^{\circ})$",'Interpreter','latex')
-grid on
 
+if calculate_smape
+
+    % Calculation of the symmetric mean absolute percentage error 
+    SMAPE_raw = abs(T_fin - T_fin_reduced) ...
+              ./ (0.5*(abs(T_fin) + abs(T_fin_reduced))) * 100;
+    
+    % Applying a corrective factor for small denominators
+    numerator = abs(T_fin - T_fin_reduced);
+    denominator = 0.5 * (abs(T_fin) + abs(T_fin_reduced));
+    denominator_is_valid = denominator > 1e-2;
+    numerator_is_valid = numerator > 1e-2;
+    model_valid = denominator_is_valid & numerator_is_valid;
+    
+    SMAPE = NaN(size(SMAPE_raw));
+    SMAPE(model_valid) = numerator(model_valid) ./ denominator((model_valid)) * 100;
+    
+    
+    % Raw SMAPE 
+    figure
+    surf(rad2deg(amplitude_range_verification), freq_range_verification, SMAPE_raw)
+    ylabel("$f$ [Hz]",'Interpreter','latex')
+    xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+    zlabel("SMAPE [%]")
+    title('SMAPE raw')
+    grid on
+    % colormap winter;
+    
+    
+    % SMAPE with numerical corrections
+    figure
+    surf(rad2deg(amplitude_range_verification), freq_range_verification, SMAPE)
+    ylabel("$f$ [Hz]",'Interpreter','latex')
+    xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+    zlabel("SMAPE [%]")
+    title('SMAPE')
+    grid minor
+    ax = gca;
+    ax.GridAlpha = 0.5;
+    ax.MinorGridAlpha = 0.3;
+    % grid on
+    % colormap winter;
+    
+    
+    % only extracting the area where the model is "sufficiently" accuracy
+    threshold_err = 100; % [%] of max error accepted between the two models
+    valid_mask = SMAPE < threshold_err;
+    SMAPE_plot = SMAPE;
+    SMAPE_plot(~valid_mask) = NaN; % mask invalid values
+    
+    figure
+    surf(rad2deg(amplitude_range_verification), freq_range_verification, SMAPE_plot')
+    ylabel("$f$ [Hz]",'Interpreter','latex')
+    xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+    zlabel("SMAPE [%]")
+    title(['SMAPE < ', num2str(threshold_err), '%'])
+    grid minor
+    ax = gca;
+    ax.GridAlpha = 0.5;
+    ax.MinorGridAlpha = 0.3;
+    % colorbar
+    
+    % Reduced SMAPE plot (only to angles < threshold)
+    SMAPE_reduced = SMAPE;
+    [theta_mesh, f_mesh] = meshgrid(rad2deg(amplitude_range_verification), freq_range_verification);
+    SMAPE_reduced(theta_mesh < 10) = NaN; 
+    
+    figure
+    surf(theta_mesh, f_mesh, SMAPE_reduced)
+    ylabel("$f$ [Hz]",'Interpreter','latex')
+    xlabel("$\theta_0$ [deg]",'Interpreter','latex')
+    zlabel("SMAPE [%]")
+    title("SMAPE $(\theta_0 \geq 10^{\circ})$",'Interpreter','latex')
+    grid on
+
+end
 
 
 %% Desired force calculation -- these values are to compute the thrust force output at a specific 
